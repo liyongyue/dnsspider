@@ -1,19 +1,11 @@
 import dns.resolver
 import re
 import time
-class node:
-	def __init__(self,nodeid,domain,childid):
-		self.domain=domain
-		self.nodeid=nodeid
-		self.children=[]
-		self.children.append(childid)
-	def addchild(self,childid):
-		self.children.append(childid)
 def find_domain(string):
 	domain_re=re.compile(r'(\S*?\.)+')
 	metch=domain_re.search(string)
 	if metch:
-		return metch.group()
+		return metch.group().lower()
 	else:
 		return ''
 def find_ip(string):
@@ -140,8 +132,7 @@ def resolve(domain):
 			if flag==0:
 				server.append(nd)
 		del nextserver[:]
-if __name__ == '__main__':
-	targetdomain="com"
+def nrecursive(targetdomain):
 	global serverqueue
 	serverqueue=[]
 	global done
@@ -152,11 +143,12 @@ if __name__ == '__main__':
 	test=[]
 	done=[]
 	time1=time.time()
-	adddomain('com')
+	serverqueue.append(targetdomain.lower())
 	while len(serverqueue)!=0:
 		tempdomain=serverqueue[0]
 		del serverqueue[0]
 		resolve(tempdomain)
+	out=open("./resultnr/")
 	print result
 	time2=time.time()
 	print time2-time1
