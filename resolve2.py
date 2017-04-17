@@ -1,7 +1,7 @@
 import dns.resolver
-domain='h.gtld-servers.net.'
+domain='.'
 try :
-	answers=dns.resolver.query(domain,'NS')
+	answers=dns.resolver.query(domain,'A')
 	for rdata in answers.rrset:
 		print rdata
 except:

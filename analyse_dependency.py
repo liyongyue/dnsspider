@@ -82,7 +82,7 @@ def a_d(filename):
 					nsstr=str(ns)
 					#print nsstr
 					if nsstr.endswith(odomain):
-						if(not odomain.endswith(nsstr)) and (len(nsstr.split('.'))-len(odomain.split('.'))==1):
+						if(odomain.endswith(nsstr)) or (len(nsstr.split('.'))-len(odomain.split('.'))==1):
 							edge[i][j]=1
 							print domain
 							print odomain
