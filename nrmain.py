@@ -8,7 +8,7 @@ while (line):
 	target.append(line)
 	#name=time.strftime("%Y-%m-%d-%H:%M:%S",time.localtime())
 	name=str(line)
-	#nrecursive(target,name)
+	nrecursive(target,name)
 	analyse_nr(name)
 	line=f.readline().strip('\n')
 f.close()

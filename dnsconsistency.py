@@ -52,7 +52,7 @@ def get_ip(server):
 def dns_resolve(domain,serverip):
 	#print (domain+serverip)
 	try:
-		q=dns.message.make_query(domain,'MX')
+		q=dns.message.make_query(domain,'NS')
 		q.flags=0x0000
 		answers = dns.query.udp(q,serverip,1)
 		#print ('out dns_resolve')
@@ -95,9 +95,10 @@ def adddomain(domain):
 	if flag==0:
 		serverqueue.append(domain)
 		addresult(domain)
-def compdo(fip,first,last,que):
+def compdo(servername,fip,first,last,que):
 	global test
 	flag=0
+	p=0
 	for l in last:
 		flag=0
 		for f in first:
@@ -105,7 +106,10 @@ def compdo(fip,first,last,que):
 				flag=1
 				break
 		if flag==0:
-			test.append(fip+l+que)
+			p=1
+			break
+	if p==1:
+		test.append(servername+'|'+fip+'|'+str(first)+'|'+str(last)+'|'+que)
 def resolve(domain):
 	#print ("target:"+domain)
 	server=[]
@@ -125,7 +129,7 @@ def resolve(domain):
 			#print ("server:"+s)
 			#print serverip
 			if len(serverip)==1:
-				for ii in range(1,5):
+				for ii in range(1,3):
 					serverip.append(serverip[0])
 			for ip in serverip:
 				del nsdomain[:]
@@ -149,7 +153,7 @@ def resolve(domain):
 							nextserver.append(find_domain(str(itu)))
 							adddomain(find_domain(str(itu)))
 			#print ('2')				if k==1:
-					compdo(fip,fipns,nsdomain,ip+domain)
+					compdo(s,fip,fipns,nsdomain,ip+domain)
 					k=1
 		i=0
 		while i<len(nextserver):
@@ -171,7 +175,7 @@ def resolve(domain):
 				server.append(nd)
 		del nextserver[:]
 		#print ('3')
-if __name__ == '__main__':
+def consistency(target):
 	global serverqueue
 	serverqueue=[]
 	global result
@@ -189,9 +193,7 @@ if __name__ == '__main__':
 	#print iplist
 	#dns_resolve(targetdomain,str(iplist[0]))
 	time1=time.time()
-	adddomain('sina.com.cn.')
-	adddomain('weibo.com.')
-	adddomain('wikipedia.org.')
+	serverqueue.append(target)
 	while len(serverqueue)!=0:
 		tempdomain=serverqueue[0]
 		del serverqueue[0]
@@ -201,3 +203,10 @@ if __name__ == '__main__':
 		print t
 	print len(test)
 	print time2-time1
+if __name__ == '__main__':
+	f=open('targetd2')
+	line=f.readline().strip('\n')
+	while (line):
+		consistency(line)
+		line=f.readline().strip('\n')
+	f.close()
