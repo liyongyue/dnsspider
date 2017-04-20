@@ -36,16 +36,18 @@ def ns_query(domain,serverip):
 def a_query(domain,serverip):
 	global rootserver
 	iplist=[]
+	print 'Q:'+domain+serverip
 	try:
 		q=dns.message.make_query(domain,'A')
 		q.flags=0x0000
 		answers = dns.query.udp(q,serverip,1)
 		return answers
 	except:
+		print 'noanswer'
 		return ''
 def dns_query(domain,serverip):
 	try:
-		q=dns.message.make_query(domain,'A')
+		q=dns.message.make_query(domain,'NS')
 		q.flags=0x0000
 		answers = dns.query.udp(q,serverip,1)
 		return answers
@@ -53,11 +55,14 @@ def dns_query(domain,serverip):
 		return ''
 def addip(ip,newip):
 	flag=0
-	for i in ip:
-		if newip==i:
-			return ip
-	ip.append(newip)
-	return ip
+	if newip=='':
+		return ip
+	else:
+		for i in ip:
+			if newip==i:
+				return ip
+		ip.append(newip)
+		return ip
 def addserver(server,server2):
 	newserver=[]
 	for s2 in server2:
@@ -71,7 +76,7 @@ def addserver(server,server2):
 				flag=1
 				break
 		if flag==0:
-			newserver.append(ns)
+			newserver.append(s2)
 	return newserver
 def resolver(domain):
 	global rootip
@@ -81,31 +86,45 @@ def resolver(domain):
 	server=[]
 	server2=[]
 	if ans!='':
-		flag=0
+		findip=0
 		for a in ans.additional:
-			if a.name==domain:
-				ip.extend(find_ip(str(a.items)))
-				flag=1
-		if flag==1 :
+			if str(a.name)==domain:
+				
+				ip=addip(ip,find_ip(str(a.items)))
+				findip=1
+		if findip==1 :
+			print ip
 			return ip
 		else :
-			for a in ans.authority:
-				server.append(find_domain(str(a.items)))
+			for au in ans.authority:
+				server.append(find_domain(str(au.items)))
 			while len(server)>0:
+				#print ''
+				#print server
+				#print domain
 				for s in server:					
-					serverip.extend(resolver(s))
+					sip=resolver(s)
+					serverip=list(set(serverip).union(set(sip)))
+				#print serverip
 				for si in serverip:
 					findip=0
 					ans2=a_query(domain,si)
 					if ans2!='':
 						for rdata in ans2.answer:
 							for it in rdata.items:
+								print 'it'+it
 								ip=addip(ip,find_ip(str(it)))
 								findip=1
 						if findip==1:
 							continue
-						for a in ans2.authority:
-							server2.append(find_domain(str(a.items)))
+						for a in ans.additional:
+							if str(a.name)==domain:
+								ip=addip(ip,find_ip(str(a.items)))
+								findip=1
+						if findip==1 :
+							return ip
+						for a2 in ans2.authority:
+							server2.append(find_domain(str(a2.items)))
 				server=addserver(server,server2)
 	return ip
 def init():
@@ -146,7 +165,7 @@ def recursive(domain):
 if __name__=='__main__':
 	init()
 	time1=time.time()
-	target='www.baidu.com'
+	target='dns.baidu.com.'
 	ip=recursive(target)
 	if len(ip)>0:
 		print ip
