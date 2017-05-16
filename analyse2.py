@@ -3,11 +3,7 @@ import re
 import networkx as nx
 import matplotlib.pyplot as plt
 import dns.resolver
-def readjson(filename):
-	with open(filename,'r') as f:
-		data=json.load(f)
-	return data
-def addnode(nodes,domain):
+def addnode(nodes,domain,data):
 	if domain!='':
 		for n in nodes:
 			if n==domain:
@@ -82,7 +78,7 @@ class map():
 		self.nodes=nodes
 		self.links=links
 
-def draw_graph(nodes,edges,nodeid):
+def draw_graph(nodes,edges,nodeid,filename):
 	G=nx.DiGraph()
 	for n in nodes:
 		G.add_node(n)
@@ -110,10 +106,10 @@ def draw_graph(nodes,edges,nodeid):
 	print len(js)
 	print len(jse)
 	json_m=json.dumps(m.__dict__)
-	output=open('./map/position.json','w')
+	output=open('./map/position-'+filename+'.json','w')
 	output.write(json_m)
 	output.close()
-	plt.show()
+	#plt.show()
 def find_edge(nodes,edges):
 	for n in range(0,len(nodes)):
 		if nodes[n]=='cuhk.edu.hk.':
@@ -125,7 +121,7 @@ def find_edge(nodes,edges):
 	print edges[m][n]
 	edges[n][m]=9999
 	edges[m][n]=9999
-def find_data(data):
+def find_data(data,name):
 	if False:
 		if data['sip']=='192.55.83.30':
 			print data
@@ -133,34 +129,44 @@ def find_data(data):
 		for a in data['add']:
 			if find_ip(a)=='45.116.42.4':
 				print data
-	if False:
+	if True:
 		for a in data['ans']:
 			if find_ip(a)=='45.116.42.4':
 				print data
-	if True:
-		for a in  data['aut']:
-			if find_domain(a)=='ns4.gdnsdef.com.':
+			if find_cname(a)=='sh.wagbridge.tmall.com.':
 				print data
 	if False:
-		if data['q']=='ns5.gdnsec.com.':
+		for a in  data['aut']:
+			if find_domain(a)=='anyns.cuhk.edu.hk.':
+				print data
+	if False:
+		if data['autname']=='cuhk.edu.hk.':
 			print data
-def analyse_nr(filename):
-	data=readjson('./resultnr/'+filename+'.json')
+	if True:
+		if data['q']=='sh.wagbridge.tmall.com.':
+			print data
+def analyse_nr(data,target):
+
+	fd_debug=False
+	fe_debug=False
 	nodes=[]
 	nodes.append('.')
 	rootip=['198.41.0.4', '192.228.79.201', '192.33.4.12', '199.7.91.13', '192.203.230.10', '192.5.5.241', '192.112.36.4', '198.97.190.53', '192.36.148.17', '192.58.128.30', '193.0.14.129', '199.7.83.42', '202.12.27.33']
 	for d in data:
-		addnode(nodes,d['q'].lower())
+		addnode(nodes,d['q'].lower(),d)
 		for a in d['add']:
 			domain=find_domain(a)
-			addnode(nodes,domain)
-		addnode(nodes,d['autname'])
+			addnode(nodes,domain,d)
+		addnode(nodes,d['autname'],d)
 		for au in d['aut']:
 			domain=find_domain(au)
-			addnode(nodes,domain)
+			addnode(nodes,domain,d)
 		for an in d['ans']:
 			domain=find_domain(an)
-			addnode(nodes,domain)
+			addnode(nodes,domain,d)
+			cname=find_cname(an)
+			if domain!='':
+				addnode(nodes,cname,d)
 
 	#------------------add-node-end---------------------------#
 	
@@ -170,10 +176,12 @@ def analyse_nr(filename):
 		edges.append([])
 		for j in range(0,len(nodes)):
 			edges[i].append(0)
-	#find_edge(nodes,edges)
+	if fe_debug:
+		find_edge(nodes,edges)
 	#start dependent on end
  	for d in data:
- 		find_data(d)
+ 		if fd_debug:
+ 			find_data(d,filename)
 		for an in d['ans']:
 			start=find_domain(an)
 			cname=find_cname(an)
@@ -182,6 +190,16 @@ def analyse_nr(filename):
 			for au in d['aut']:
 				end=find_domain(au)
 				addedge(nodes,edges,start,end,d,2)
+			ip=find_ip(an)
+			end=find_domain(an)
+			for dd in data:
+				if dd['sip']==ip:
+					for au2 in dd['aut']:
+						start=find_domain(au2)
+						addedge(nodes,edges,start,end,dd,8)
+					for an2 in dd['ans']:
+						start=find_domain(an2)
+						addedge(nodes,edges,start,end,dd,9)
 		for au in d['aut']:
 			end=find_domain(au)
 			addedge(nodes,edges,d['autname'],end,d,3)
@@ -197,6 +215,9 @@ def analyse_nr(filename):
 					for an2 in dd['ans']:
 						start=find_domain(an2)
 						addedge(nodes,edges,start,end,dd,5)
+						cname=find_cname(an2)
+						if cname !='':
+							addedge(nodes,edges,cname,end,d,10)
 	for d in data:
 		end='.'
 		for ip in rootip:
@@ -210,6 +231,7 @@ def analyse_nr(filename):
 	#test(nodes,edges)
 	#-----------------------------add-edge-end--------------#
 	nodeid=[]
+	endnode=0
 	for n in range(0,len(nodes)):
 		isstart=0
 		isend=0
@@ -226,9 +248,25 @@ def analyse_nr(filename):
 					break
 			if isend==0:
 				nodeid.append(40)
+				endnode+=1
+				if endnode>1:
+					print nodes[n]
 			else:
 				nodeid.append(100)
 	#for n in range(0,len(nodes)):
 	#	print nodes[n]
 	#	print nodeid[n]
-	draw_graph(nodes,edges,nodeid)
+	draw_graph(nodes,edges,nodeid,target)
+	return nodes
+if __name__=='__main__':
+	global target
+	filename='5-16'
+	f=open('./resultnr/'+filename+'.json')
+	line=f.readline().strip('\n')
+	while(line):
+		try:
+			data=json.loads(line)
+			analyse_nr(data,target)
+		except:
+			target=line
+		line=f.readline().strip('\n')
