@@ -1,8 +1,9 @@
+#coding=utf-8
 import dns.resolver
 import re
 import time
 import json
-
+import csv
 def find_domain(string):
 	domain_re=re.compile(r'(\S*?\.)+')
 	metch=domain_re.search(string)
@@ -18,7 +19,6 @@ def find_ip(string):
 	else:
 		return ''#ipv6 return ''
 def ns_query(domain,serverip):
-	global rootserver
 	ans={}
 	try:
 		q=dns.message.make_query(domain,'NS')
@@ -34,24 +34,34 @@ def ns_query(domain,serverip):
 	except:
 		return ans
 def is_done(domain):
-	global cache
-	ip=cache.get(domain,0)
+	global localcache
+	global gcache
+	ip=localcache.get(domain,0)
 	if ip!=0:
 		#print 'in done'
 		#print ip
 		return ip
 	else :
-		return 0
+		ip=gcache.get(domain,0)
+		if ip!=0:
+			return ip
+		else:
+			return 0
 def addlog(domain,serverip,servername,time):
-	global log
+	#error num:
+	#0 同一级权威服务器，给出答案中的域不同
+	#1-3 访问超时1-3次
+	global logfile
 	temp=[]
 	temp.append(domain)
 	temp.append(serverip)
 	temp.append(servername)
 	temp.append(time)
-	log.append(temp)
+	outlog=open("./log/"+logfile+".json",'a')
+	json_dependency=json.dumps(temp)
+	outlog.write(json_dependency)
+	outlog.close()	
 def addresult(ip,query,ans):
-	global filename2
 	global result
 	temp={}
 	temp['sip']=ip
@@ -73,7 +83,6 @@ def addresult(ip,query,ans):
 	result.append(temp)
 
 def a_query(domain,serverip,servername):
-	global rootserver
 	iplist=[]
 	if serverip=='':
 		return ''
@@ -147,6 +156,7 @@ def newserver(server,server2):
 			newserver.append(s2)
 	return newserver
 def addl2l(ip,newip):
+
 	for ni in newip:
 		flag=0
 		for i in ip:
@@ -156,19 +166,19 @@ def addl2l(ip,newip):
 		if flag==0:
 			ip.append(ni)
 	return ip
-def addcache(domain,ip):
-	global cache
-	print cache
-	if cache.has_key(domain):
-		cache[domain]=addl2l(cache[domain],ip)
+def addlocalcache(domain,ip):
+	global localcache
+	#print cache
+	if localcache.has_key(domain):
+		localcache[domain]=addl2l(localcache[domain],ip)
 	else :
-		cache.setdefault(domain,ip)
+		localcache.setdefault(domain,ip)
 def resolver(domain,ceng):
 	global rootip
 	global ing
 	ceng+=1
-	print ceng
-	print domain
+	#print ceng
+	#print domain
 	ip=[]
 	server={}
 	server['domain']='.'
@@ -185,7 +195,7 @@ def resolver(domain,ceng):
 			#print 'ip find:'
 			#print domain
 			#print 'from root'
-			addcache(domain,ip)
+			addlocalcache(domain,ip)
 			return ip
 		else :
 
@@ -199,14 +209,14 @@ def resolver(domain,ceng):
 					server['name'].append(find_domain(str(a.name)))
 					gtldip=[]
 					gtldip.append(find_ip(str(a.items)))
-					addcache(find_domain(str(a.name)),gtldip)
+					addlocalcache(find_domain(str(a.name)),gtldip)
 			else :
 				for a in ans.additional:
 					server['ip'].append(find_ip(str(a.items)))
 					server['name'].append(find_domain(str(a.name)))
 					gtldip=[]
 					gtldip.append(find_ip(str(a.items)))
-					addcache(find_domain(str(a.name)),gtldip)
+					addlocalcache(find_domain(str(a.name)),gtldip)
 		while len(server['ip'])>0:
 			server2=[]
 			server2name=[]
@@ -262,7 +272,7 @@ def resolver(domain,ceng):
 							noserver2name=adds2l(noserver2name,find_domain(str(a.name)))
 							addip=[]
 							addip.append(find_ip(str(a.items)))
-							addcache(find_domain(str(a.name)),addip)
+							#addcache(find_domain(str(a.name)),addip)
 					for a2 in ans2.authority:
 						server2domain=find_domain(str(a2.name))
 						for a2i in a2.items:
@@ -292,34 +302,17 @@ def resolver(domain,ceng):
 			server['ip']=newserver(server['ip'],server2)
 			server['name']=newserver(server['name'],server2name)
 			server['domain']=server2domain
-	addcache(domain,ip)
+	addlocalcache(domain,ip)
 	#debug
 	return ip
-def init():
-	global rootserver
-	rootserver=[]
+def init(target):
 	global rootip
-	rootip=[]
-	rootserver.append('a.root-servers.net.')
-	rootserver.append('b.root-servers.net.')
-	rootserver.append('c.root-servers.net.')
-	rootserver.append('d.root-servers.net.')
-	rootserver.append('e.root-servers.net.')
-	rootserver.append('f.root-servers.net.')
-	rootserver.append('g.root-servers.net.')
-	rootserver.append('h.root-servers.net.')
-	rootserver.append('i.root-servers.net.')
-	rootserver.append('j.root-servers.net.')
-	rootserver.append('k.root-servers.net.')
-	rootserver.append('l.root-servers.net.')
-	rootserver.append('m.root-servers.net.')
-	for r in rootserver:
-		try:
-			answers=dns.resolver.query(r,'A')
-			for rdata in answers:
-				rootip.append(rdata.address)
-		except:
-			continue
+	global logfile
+	rootip=['198.41.0.4', '192.228.79.201', '192.33.4.12', '199.7.91.13', '192.203.230.10', '192.5.5.241', '192.112.36.4', '198.97.190.53', '192.36.148.17', '192.58.128.30', '193.0.14.129', '199.7.83.42', '202.12.27.33']
+	outlog=open("./log/"+logfile+".json",'a')
+	#t=time.strftime("%Y-%m-%d-%H:%M:%S",time.localtime())
+	outlog.write(target+'\n')
+	outlog.close()
 def recursive(domain):
 	iplist=[]
 	try:
@@ -330,19 +323,25 @@ def recursive(domain):
 	except:
 		#print 'can not get ip'+domain
 		return iplist	
-def dnsget(target,filename,logfile):
-	init()
-	global cache
+def refreshcache():
+	global localcache
+	global gcache
+	if len(gcache)<100000:
+		gcache=dict(gcache,**localcache)
+	else:
+		return
+def dnsget(target,filename,log):
+	global localcache
 	global ing
-	global log
 	global filename2
 	global result
+	global logfile
+	localcache={}
+	logfile=log
 	filename2=filename
 	result=[]
-	log=[]
-	cache={}
 	ing=[]
-
+	init(target)
 	if target[-1]!='.':
 		target=target+'.'
 	target=target.lower()
@@ -354,40 +353,26 @@ def dnsget(target,filename,logfile):
 			print target+'failed'
 	else :
 		print target+' cannt conn'
-	output=open("./resultnr/"+filename2+".json",'w')
+	refreshcache()
+	output=open("./resultnr/"+filename2+".json",'a')
 	json_dependency=json.dumps(result)
+	output.write(target+'\n')
 	output.write(json_dependency)
+	output.write('\n')
 	output.close()
-	outlog=open("./log/"+logfile+".json",'w')
-	json_dependency=json.dumps(log)
-	outlog.write(json_dependency)
-	outlog.close()	
-	
-
-def test():
-	global cache
-	cache={}
-	print 'test addcache()'
-	addcache('a',['1.2.3'])
-	print cache
-	addcache('b',['1.1.1'])
-	print cache
-	addcache('a',['1.2.3','5.5'])
-	print cache
-	addcache('a',['6.6'])
-	print cache
-	print 'test addl2l'
-	ip=['1.1']
-	ip2=['1.1','1.2']
-	ip3=['1.3']
-	addl2l(ip,ip2)
-	print ip
-	addl2l(ip,ip3)
-	print ip
-	print addl2l(ip,ip)
-	print 'test adds2l'
-	print ip2
-	print adds2l(ip2,'1.1.1')
-	print adds2l(ip2,'1.1.2')
-	print 'test newserver'
-	print newserver(ip2,['1.1.1','2222'])
+if __name__=='__main__':
+	global gcache
+	gcache={}
+	f=open("top-1m.csv","rb")
+	reader=csv.reader(f)
+	i=0
+	for row in reader:
+		i+=1
+		t1=time.time()
+		name=row[1]
+		print i
+		print name
+		dnsget(name,'5-16-2','5-16-2')
+		t2=time.time()-t1
+		print t2
+	f.close()
